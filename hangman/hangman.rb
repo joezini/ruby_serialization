@@ -1,3 +1,5 @@
+require 'yaml'
+
 class Game
 
 	def pick_word
@@ -98,6 +100,8 @@ ___|\___)
 			puts "You already guessed that"
 		elsif ('a'..'z').to_a.include?(guess.downcase)
 			true
+		elsif guess == '1'
+			true
 		else
 			false
 		end
@@ -124,12 +128,22 @@ ___|\___)
 
 	end
 
-	def initialize
-		puts "Welcome to hangman!"
-		@word = pick_word.chomp
+	def save_game
+		save_data = YAML::dump([@word, @guessed_letters, @stage])
+		save_file = File.new("hangman_save", "w")
+		save_file.puts save_data
+		save_file.close
+	end
+
+	def initialize(word='0', guessed_letters=[], stage=0)
+		if word == '0'
+			@word = pick_word.chomp
+		else
+			@word = word
+		end
 		@word_so_far = draw_word_so_far
-		@guessed_letters = []
-		@stage = 0
+		@guessed_letters = guessed_letters
+		@stage = stage
 		@game_over = false
 
 		until @game_over
@@ -137,16 +151,54 @@ ___|\___)
 			puts @word_so_far
 			puts "Guessed letters: #{@guessed_letters}"
 			valid_entry = false
-			puts "Pick a letter..."
+			puts "Pick a letter or type '1' to save"
 			until valid_entry
 				@guess = gets.chomp
 				valid_entry = check_entry(@guess)
 			end
 			@guess = @guess.downcase
-			check_guess(@guess)
+			if @guess == '1'
+				save_game
+				@game_over = true
+				puts "Game saved"
+			else
+				check_guess(@guess)
+			end
 			draw_hangman(@stage)
 		end
 	end
 end
 
-Game.new
+class GameStarter
+	def check_choice(choice)
+		choice == '1' || choice == '2'
+	end
+
+	def initialize
+		puts "Welcome to hangman!"
+		valid_choice = false
+		until valid_choice
+			puts "Type '1' for a new game or '2' to load a game..."
+			@choice = gets.chomp
+			valid_choice = check_choice(@choice)
+		end
+
+		if @choice == '1'
+			new_game = Game.new
+		elsif @choice == '2'
+			if File.exist?("hangman_save")
+				save_data_raw = ''
+				File.open("hangman_save").each do |line|
+					save_data_raw << line
+				end
+				save_data = YAML::load(save_data_raw) 
+				Game.new(save_data[0], save_data[1], save_data[2])
+			else
+				puts "No save file found, starting new game..."
+				Game.new
+			end
+		end
+	end
+end
+
+GameStarter.new
